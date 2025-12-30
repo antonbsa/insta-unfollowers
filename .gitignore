@@ -1,0 +1,12 @@
+# packages
+node_modules/
+
+# base files
+followers_1.json
+following.json
+
+# logs and temp files
+.todo
+*.log
+analysis_results.json
+prompt.md
