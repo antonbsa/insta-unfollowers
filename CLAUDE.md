@@ -29,21 +29,17 @@ The analyzer is the foundation that all future features (web interface, charts, 
 
 2. **Uses Set-based operations** for O(1) performance:
    - Creates `Map<username, timestamp>` for both datasets
-   - Performs set difference operations to categorize users
+   - Merges followers and following maps into unified user collection
    - Handles large datasets (tested with 798 followers, 1048 following) in ~0.01s
 
-3. **Categorizes relationships**:
-   - **not_following_back**: `following_set - followers_set`
-   - **fans**: `followers_set - following_set`
-   - **mutual**: `followers_set ∩ following_set`
+3. **Returns unified user data structure**:
+   - Each user appears exactly once with both timestamps
+   - Category determination via timestamp presence:
+     - **mutual**: both `followed_you_at` and `you_followed_at` present
+     - **fans**: only `followed_you_at` present
+     - **not_following_back**: only `you_followed_at` present
 
-4. **Calculates follow back time**:
-   - `follow_back_time = they_followed_at - you_followed_at`
-   - Positive value: they followed after you (you followed first)
-   - Negative value: you followed after them (they followed first)
-   - Only meaningful for mutual followers
-
-5. **Exports modular functions** for reuse:
+4. **Exports modular functions** for reuse:
    - `analyzeRelationships()` - Main analysis function
    - `readFollowers()` - Parse followers data
    - `readFollowing()` - Parse following data
@@ -51,37 +47,31 @@ The analyzer is the foundation that all future features (web interface, charts, 
 
 ### Output Structure
 
-`analysis_results.json` contains:
-```javascript
-{
-  data: {
-    not_following_back: [{username, you_followed_at, you_followed_at_date}],
-    fans: [{username, they_followed_at, they_followed_at_date}],
-    mutual: [{
-      username,
-      you_followed_at,
-      they_followed_at,
-      follow_back_time_seconds,
-      follow_back_time_days,
-      who_followed_first  // 'you' | 'them'
-    }]
+`analysis_results.json` is an array of user objects:
+```javascriptnames with `followed_you_at` and `you_followed_at`
+[
+  {
+    "username": "user1",
+    "followed_you_at": 1766303220,      // null if user doesn't follow you
+    "you_followed_at": 1766317802       // null if you don't follow user
   },
-  totals: {followers, following, mutual, not_following_back, fans},
-  rates: {mutual_rate, follow_back_rate},
-  execution_time_seconds
-}
+  {
+    "username": "user2",
+    "followed_you_at": null,
+    "you_followed_at": 1764531324
+  }
+]
 ```
 
-All arrays are sorted by timestamp (most recent first).
+Array sorted by `followed_you_at` (most recent first), then by `you_followed_at`.
 
 ## Development Guidelines
 
 ### Preferences
 
-- Before implementing features, display technical decisions regarding data structure and algorithm choices; Present the approach for user approval before writing code
 - Keep logs minimal and essential only; Avoid verbose console output
 
 - Future Integration:
    - Web interface will import `analyzer.js` as a module
-   - Charts/visualizations will consume returned data from `analyzer.js` (`analysis_results.json` will not be generated)
-   - Time tracking features will use the `follow_back_time_*` fields
+   - Dashboard can filter results by timestamp presence (null/non-null) to determine categories
+   - Charts/visualizations will consume returned data from `analyzer.js`
